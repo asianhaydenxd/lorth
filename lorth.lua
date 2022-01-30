@@ -15,6 +15,11 @@ local function remove_comments(text)
     return table.concat(commentless_text, "\n")
 end
 
+local function raise(message, index)
+    print("Exception raised: "..message.." (index "..index..")")
+    os.exit()
+end
+
 local function split(text) -- Credit: Paul Kulchenko (stackoverflow)
     -- Split text using whitespace but keep single and double quotes intact
     local split_text = {}
@@ -31,19 +36,14 @@ local function split(text) -- Credit: Paul Kulchenko (stackoverflow)
             buf = buf .. ' ' .. str
         end
         if not buf then
-            table.insert(split_text, (str))
+            table.insert(split_text, str)
         end
     end
     if buf then
-        print("Missing matching quote for "..buf)
+        raise("missing matching quote for "..buf, #split_text+1)
         return nil
     end
     return split_text
-end
-
-local function raise(message, index)
-    print("Exception raised: "..message.." (index "..index..")")
-    os.exit()
 end
 
 local function parse(code)
@@ -227,6 +227,9 @@ local function parse(code)
         
         elseif token == "exit" then
             push("EXIT")
+
+        elseif token == "tokens" then
+            push("PRINT_TOKENS")
         
         elseif functs[token] ~= nil then
             push("CALL_FUNCT:"..token)
@@ -245,9 +248,11 @@ end
 local function compile(code)
     local stack = {}
     local params = {}
+    local function_addresses = {}
+    local function_calls = {}
     local tokens = parse(split(remove_comments(code)))
 
-    print(table.concat(tokens, " "))
+    -- print(table.concat(tokens, " "))
 
     local index = 0
     while index < #tokens do
@@ -484,10 +489,14 @@ local function compile(code)
                 if ctk == "END" then
                     nesting = nesting + 1
 
-                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET"
-                        or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
+                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET" or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
                     if nesting == 0 then
-                        if ctk == "WHILE" then index = temp_i end
+                        if ctk == "WHILE" then
+                            index = temp_i
+                        end
+                        if ctk == "FUNCT" then
+                            index = function_calls[#function_calls]
+                        end
                         break
                     else
                         nesting = nesting - 1
@@ -495,11 +504,53 @@ local function compile(code)
                 end
             end
 
-        elseif token == "EXIT" then
-            if stack[#stack] and stack[#stack] ~= 0 then
-                raise(stack[#stack], index)
+        elseif token == "FUNCT" then
+            local init_index = index
+            index = index + 1
+            local funct_name = tokens[index]:sub(12)
+            while true do
+                index = index + 1
+                if tokens[index] == "DO" then
+                    break
+                end
             end
-            os.exit()
+            function_addresses[funct_name] = init_index
+            
+            local nesting = 0 -- Workaround for nesting
+            while true do
+                index = index + 1
+                local ctk = tokens[index]
+
+                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+                    nesting = nesting + 1
+
+                elseif ctk == "END" then
+                    if nesting == 0 then
+                        break
+                    else
+                        nesting = nesting - 1
+                    end
+                end
+            end
+        
+        elseif token == "CALL_FUNCT" then
+            table.insert(function_calls, index)
+            index = function_addresses[value]
+
+            local unordered_params = {}
+            while true do
+                index = index + 1
+                
+                if tokens[index] == "DO" then
+                    break
+                else
+                    table.insert(unordered_params, tokens[index])
+                end
+            end
+            for i = #unordered_params, 1, -1 do
+                params[unordered_params[i]:sub(7)] = stack[#stack]
+                table.remove(stack, #stack)
+            end
 
         elseif token == "LET" then
             local unordered_params = {}
@@ -531,6 +582,15 @@ local function compile(code)
             for i = #unordered_params, 1, -1 do
                 params[unordered_params[i]:sub(7)] = stack[#stack-#unordered_params+i]
             end
+
+        elseif token == "EXIT" then
+            if stack[#stack] and stack[#stack] ~= 0 then
+                raise(stack[#stack], index)
+            end
+            os.exit()
+
+        elseif token == "PRINT_TOKENS" then
+            print(table.concat(tokens, " "))
 
         elseif token == "PUSH_PARAM" then
             table.insert(stack, params[value])
