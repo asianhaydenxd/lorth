@@ -468,9 +468,6 @@ local function compile(code)
             if #stack == 0 then raise("cannot interpret empty stack", index) end
             print(stack[#stack])
             table.remove(stack, #stack)
-
-        elseif token == "READ" then
-            print(stack[#stack])
         
         elseif token == "PRINT_STACK" then
             local out = ""
