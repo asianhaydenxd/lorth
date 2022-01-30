@@ -7,7 +7,7 @@ local function remove_comments(text)
     local commentless_text = {}
     for line in text:gmatch("[^\r\n]+") do
         local parts = {}
-        for str in line:gmatch("[^--]+") do
+        for str in line:gmatch("[^#]+") do
             table.insert(parts, str)
         end
         table.insert(commentless_text, parts[1])
@@ -133,7 +133,7 @@ local function parse(code)
         elseif token == "printall" then
             push("PRINT_STACK")
 
-        elseif token == "#" then
+        elseif token == "stacklen" then
             push("PUSH_STACK_LENGTH")
 
         elseif token == "dup" then
@@ -397,7 +397,7 @@ local function compile(code)
         elseif token == "THEN" then
             local bool = stack[#stack]
             table.remove(stack, #stack)
-            if not bool then
+            if bool == false then
                 local nesting = 0 -- Workaround for nesting
                 while true do
                     index = index + 1
@@ -459,7 +459,6 @@ local function compile(code)
             os.exit()
 
         elseif token == "LET" then
-            local init_index = index -- for debugging
             local unordered_params = {}
             while true do
                 index = index + 1
@@ -476,7 +475,6 @@ local function compile(code)
             end
         
         elseif token == "PEEK" then
-            local init_index = index -- for debugging
             local unordered_params = {}
             while true do
                 index = index + 1
