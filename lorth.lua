@@ -250,6 +250,7 @@ local function compile(code)
     local params = {}
     local function_addresses = {}
     local function_calls = {}
+    local constants = {}
     local tokens = parse(split(remove_comments(code)))
 
     -- print(table.concat(tokens, " "))
@@ -496,6 +497,7 @@ local function compile(code)
                         end
                         if ctk == "FUNCT" then
                             index = function_calls[#function_calls]
+                            table.remove(function_calls, #function_calls)
                         end
                         break
                     else
@@ -515,7 +517,7 @@ local function compile(code)
                 end
             end
             function_addresses[funct_name] = init_index
-            
+
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
