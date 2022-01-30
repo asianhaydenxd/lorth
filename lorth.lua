@@ -66,6 +66,27 @@ local function parse(code)
     while index < #code do
         index = index + 1
         local token = code[index]
+        if token == "require" then
+            index = index + 1
+            
+            local req_script
+
+            if not pcall(function ()
+                req_script = assert(io.open(code[index]..".lorth", "rb")):read("*all")
+            end) then
+                raise("invalid file name for require", index)
+            end
+
+            for _, new_token in ipairs(split(req_script)) do
+                table.insert(code, new_token)
+            end
+        end
+    end
+
+    index = 0
+    while index < #code do
+        index = index + 1
+        local token = code[index]
         if token == "funct" then
             index = index + 1
             functs[code[index]] = true
@@ -258,6 +279,8 @@ local function parse(code)
                 index = index + 1
                 push("REQUIRE_ALIAS:"..code[index])
                 require_aliases[code[index]] = true
+            else
+                require_aliases[code[index]] = true
             end
         
         elseif functs[token] ~= nil then
@@ -270,12 +293,7 @@ local function parse(code)
             push("PUSH_PARAM:"..token)
 
         else
-            local library, _ = token:match("(.+)/(.+)")
-            if require_aliases[library] then
-                push("CALL_LIBRARY:"..token)
-            else
-                push("UNKNOWN:"..token)
-            end
+            push("UNKNOWN:"..token)
         end
     end
 
@@ -289,13 +307,48 @@ local function compile(code)
     local function_calls = {}
     local constant_addresses = {}
     local constant_calls = {}
-    local libraries = {}
     local tokens = parse(code)
 
     -- print(table.concat(tokens, " "))
 
-    -- Hoisting functions and constants
+    -- Appending library code
     local index = 0
+    while index < #tokens do
+        index = index + 1
+
+        local elements = {}
+        for str in string.gmatch(tokens[index], "[^:]+") do
+            table.insert(elements, str)
+        end
+        local token = elements[1]
+        local value = elements[2]
+
+        if token == "REQUIRE_FILE" then
+            local req_script
+
+            if not pcall(function ()
+                req_script = assert(io.open(value..".lorth", "rb")):read("*all")
+            end) then
+                raise("invalid file name for require", index)
+            end
+
+            local new_tokens = parse(req_script)
+
+            for _, new_token in ipairs(new_tokens) do
+                local e = {}
+                for str in string.gmatch(new_token, "[^:]+") do
+                    table.insert(e, str)
+                end
+                if e[1] == "FUNCT_NAME" then
+                    new_token = "FUNCT_NAME:"..value..":"..e[2]
+                end
+                table.insert(tokens, new_token)
+            end
+        end
+    end
+
+    -- Hoisting functions and constants
+    index = 0
     while index < #tokens do
         index = index + 1
 
@@ -680,9 +733,6 @@ local function compile(code)
 
         elseif token == "PRINT_TOKENS" then
             print(table.concat(tokens, " "))
-
-        elseif token == "CALL_LIBRARY" then
-
 
         elseif token == "PUSH_PARAM" then
             table.insert(stack, params[value])
