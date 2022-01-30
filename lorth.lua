@@ -71,7 +71,6 @@ local function parse(code)
             functs[code[index]] = true
             while code[index+1] ~= "do" do
                 index = index + 1
-                params[code[index]] = true
             end
 
         elseif token == "const" then
@@ -189,6 +188,7 @@ local function parse(code)
             while code[index+1] ~= "do" do
                 index = index + 1
                 push("PARAM:"..code[index])
+                params[code[index]] = true
             end
         
         elseif token == "let" then
@@ -224,7 +224,7 @@ local function parse(code)
                 if ctk == "END" then
                     nesting = nesting + 1
 
-                elseif ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+                elseif ctk == "DO" or ctk == "THEN" or ctk == "ELSE" or ctk == "CONST" then
                     if nesting == 0 then
                         break
                     else
@@ -236,6 +236,8 @@ local function parse(code)
                     params[code[temp_i]] = nil
 
                 elseif ctk == nil then
+                    print(table.concat(tokens, " "))
+                    print(index)
                     raise("unmatched end", index)
                 end
             end
@@ -264,7 +266,7 @@ local function parse(code)
             push("CALL_FUNCT:"..token)
 
         elseif consts[token] ~= nil then
-            push("PUSH_CONST:"..token)
+            push("CALL_CONST:"..token)
         
         elseif params[token] ~= nil then
             push("PUSH_PARAM:"..token)
@@ -285,7 +287,8 @@ local function compile(code)
     local params = {}
     local function_addresses = {}
     local function_calls = {}
-    local constants = {}
+    local constant_addresses = {}
+    local constant_calls = {}
     local libraries = {}
     local tokens = parse(code)
 
@@ -293,7 +296,6 @@ local function compile(code)
 
     -- Hoisting functions and constants
     local index = 0
-    local is_reading_const = false
     while index < #tokens do
         index = index + 1
 
@@ -304,10 +306,9 @@ local function compile(code)
         local token = elements[1]
         local value = elements[2]
 
-        if token == "FUNCT" then
-            local init_index = index
-            index = index + 1
-            local funct_name = tokens[index]:sub(12)
+        if token == "FUNCT_NAME" then
+            local init_index = index - 1
+            local funct_name = value
             while true do
                 index = index + 1
                 if tokens[index] == "DO" then
@@ -315,30 +316,9 @@ local function compile(code)
                 end
             end
             function_addresses[funct_name] = init_index
-        
-        elseif token == "END" then
-            local temp_i = index
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                temp_i = temp_i - 1
-                local ctk = tokens[temp_i]
 
-                if ctk == "END" then
-                    nesting = nesting + 1
-
-                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET" or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
-                    if nesting == 0 then
-                        if ctk == "CONST" then
-                            temp_i = temp_i + 1
-                            constants[tokens[temp_i]:sub(12)] = stack[#stack]
-                            table.remove(stack, #stack)
-                        end
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
-            end
+        elseif token == "CONST_NAME" then
+            constant_addresses[value] = index
         end
     end
 
@@ -346,6 +326,7 @@ local function compile(code)
     index = 0
     while index < #tokens do
         index = index + 1
+        -- print(index)
 
         local elements = {}
         for str in string.gmatch(tokens[index], "[^:]+") do
@@ -584,6 +565,10 @@ local function compile(code)
                             index = function_calls[#function_calls]
                             table.remove(function_calls, #function_calls)
                         end
+                        if ctk == "CONST" then
+                            index = constant_calls[#constant_calls]
+                            table.remove(constant_calls, #constant_calls)
+                        end
                         break
                     else
                         nesting = nesting - 1
@@ -591,8 +576,27 @@ local function compile(code)
                 end
             end
 
-        elseif token == "PUSH_CONST" then
-            table.insert(stack, constants[value])
+        elseif token == "CONST" then
+            local nesting = 0 -- Workaround for nesting
+            while true do
+                index = index + 1
+                local ctk = tokens[index]
+
+                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+                    nesting = nesting + 1
+
+                elseif ctk == "END" then
+                    if nesting == 0 then
+                        break
+                    else
+                        nesting = nesting - 1
+                    end
+                end
+            end
+
+        elseif token == "CALL_CONST" then
+            table.insert(constant_calls, index)
+            index = constant_addresses[value]
 
         elseif token == "FUNCT" then
             index = index + 1
