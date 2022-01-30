@@ -1,5 +1,3 @@
--- Lorth with IR
-
 local file_name = "main.lorth"
 local script = assert(io.open(file_name, "rb")):read("*all")
 
@@ -22,6 +20,7 @@ end
 
 local function split(text) -- Credit: Paul Kulchenko (stackoverflow)
     -- Split text using whitespace but keep single and double quotes intact
+    text = remove_comments(text)
     local split_text = {}
     local spat, epat, buf, quoted = [=[^(['"])]=], [=[(['"])$]=], nil, nil
     for str in text:gmatch("%S+") do
@@ -51,6 +50,8 @@ local function parse(code)
     local functs = {}
     local consts = {}
     local params = {}
+
+    code = split(code)
     
     local function is_within(token, a, b)
         return token:sub(1, 1) == a and token:sub(#token) == b
@@ -251,7 +252,7 @@ local function compile(code)
     local function_addresses = {}
     local function_calls = {}
     local constants = {}
-    local tokens = parse(split(remove_comments(code)))
+    local tokens = parse(code)
 
     -- print(table.concat(tokens, " "))
 
@@ -499,12 +500,20 @@ local function compile(code)
                             index = function_calls[#function_calls]
                             table.remove(function_calls, #function_calls)
                         end
+                        if ctk == "CONST" then
+                            temp_i = temp_i + 1
+                            constants[tokens[temp_i]:sub(12)] = stack[#stack]
+                            table.remove(stack, #stack)
+                        end
                         break
                     else
                         nesting = nesting - 1
                     end
                 end
             end
+
+        elseif token == "PUSH_CONST" then
+            table.insert(stack, constants[value])
 
         elseif token == "FUNCT" then
             local init_index = index
@@ -538,7 +547,6 @@ local function compile(code)
         elseif token == "CALL_FUNCT" then
             table.insert(function_calls, index)
             index = function_addresses[value]
-
             local unordered_params = {}
             while true do
                 index = index + 1
