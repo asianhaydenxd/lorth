@@ -312,48 +312,12 @@ local function compile(code)
     while index < #tokens do
         index = index + 1
 
-        local elements = {}
-        for str in string.gmatch(tokens[index], "[^:]+") do
-            table.insert(elements, str)
+        local token, value
+        if string.find(tokens[index], ":") then
+            token, value = tokens[index]:match("(.+):(.+)")
+        else
+            token = tokens[index]
         end
-        local token = elements[1]
-        local value = elements[2]
-
-        if token == "REQUIRE_FILE" then
-            local req_script
-
-            if not pcall(function ()
-                req_script = assert(io.open(value..".lorth", "rb")):read("*all")
-            end) then
-                raise("invalid file name for require", index)
-            end
-
-            local new_tokens = parse(req_script)
-
-            for _, new_token in ipairs(new_tokens) do
-                local e = {}
-                for str in string.gmatch(new_token, "[^:]+") do
-                    table.insert(e, str)
-                end
-                if e[1] == "FUNCT_NAME" then
-                    new_token = "FUNCT_NAME:"..value..":"..e[2]
-                end
-                table.insert(tokens, new_token)
-            end
-        end
-    end
-
-    -- Hoisting functions and constants
-    index = 0
-    while index < #tokens do
-        index = index + 1
-
-        local elements = {}
-        for str in string.gmatch(tokens[index], "[^:]+") do
-            table.insert(elements, str)
-        end
-        local token = elements[1]
-        local value = elements[2]
 
         if token == "FUNCT_NAME" then
             local init_index = index - 1
@@ -377,12 +341,12 @@ local function compile(code)
         index = index + 1
         -- print(index)
 
-        local elements = {}
-        for str in string.gmatch(tokens[index], "[^:]+") do
-            table.insert(elements, str)
+        local token, value
+        if string.find(tokens[index], ":") then
+            token, value = tokens[index]:match("(.+):(.+)")
+        else
+            token = tokens[index]
         end
-        local token = elements[1]
-        local value = elements[2]
         
         -- Data types
         if token == "OP_PUSH_STR" then
