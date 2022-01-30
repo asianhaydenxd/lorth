@@ -50,6 +50,7 @@ local function parse(code)
     local functs = {}
     local consts = {}
     local params = {}
+    local require_aliases = {}
 
     code = split(code)
     
@@ -62,6 +63,24 @@ local function parse(code)
     end
 
     local index = 0
+    while index < #code do
+        index = index + 1
+        local token = code[index]
+        if token == "funct" then
+            index = index + 1
+            functs[code[index]] = true
+            while code[index+1] ~= "do" do
+                index = index + 1
+                params[code[index]] = true
+            end
+
+        elseif token == "const" then
+            index = index + 1
+            consts[code[index]] = true
+        end
+    end
+
+    index = 0
     while index < #code do
         index = index + 1
         local token = code[index]
@@ -162,17 +181,14 @@ local function parse(code)
             push("CONST")
             index = index + 1
             push("CONST_NAME:"..code[index])
-            consts[code[index]] = true
         
         elseif token == "funct" then
             push("FUNCT")
             index = index + 1
             push("FUNCT_NAME:"..code[index])
-            functs[code[index]] = true
             while code[index+1] ~= "do" do
                 index = index + 1
                 push("PARAM:"..code[index])
-                params[code[index]] = true
             end
         
         elseif token == "let" then
@@ -231,6 +247,18 @@ local function parse(code)
 
         elseif token == "tokens" then
             push("PRINT_TOKENS")
+
+        elseif token == "require" then
+            push("REQUIRE")
+            index = index + 1
+            push("REQUIRE_FILE:"..code[index])
+            if code[index+1] == "as" then
+                index = index + 1
+                push("REQUIRE_AS")
+                index = index + 1
+                push("REQUIRE_ALIAS:"..code[index])
+                require_aliases[code[index]] = true
+            end
         
         elseif functs[token] ~= nil then
             push("CALL_FUNCT:"..token)
@@ -240,6 +268,12 @@ local function parse(code)
         
         elseif params[token] ~= nil then
             push("PUSH_PARAM:"..token)
+
+        else
+            local library, _ = token:match("(.+)/(.+)")
+            if require_aliases[library] then
+                push("CALL_LIBRARY:"..token)
+            end
         end
     end
 
@@ -252,11 +286,64 @@ local function compile(code)
     local function_addresses = {}
     local function_calls = {}
     local constants = {}
+    local libraries = {}
     local tokens = parse(code)
 
     -- print(table.concat(tokens, " "))
 
+    -- Hoisting functions and constants
     local index = 0
+    local is_reading_const = false
+    while index < #tokens do
+        index = index + 1
+
+        local elements = {}
+        for str in string.gmatch(tokens[index], "[^:]+") do
+            table.insert(elements, str)
+        end
+        local token = elements[1]
+        local value = elements[2]
+
+        if token == "FUNCT" then
+            local init_index = index
+            index = index + 1
+            local funct_name = tokens[index]:sub(12)
+            while true do
+                index = index + 1
+                if tokens[index] == "DO" then
+                    break
+                end
+            end
+            function_addresses[funct_name] = init_index
+        
+        elseif token == "END" then
+            local temp_i = index
+            local nesting = 0 -- Workaround for nesting
+            while true do
+                temp_i = temp_i - 1
+                local ctk = tokens[temp_i]
+
+                if ctk == "END" then
+                    nesting = nesting + 1
+
+                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET" or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
+                    if nesting == 0 then
+                        if ctk == "CONST" then
+                            temp_i = temp_i + 1
+                            constants[tokens[temp_i]:sub(12)] = stack[#stack]
+                            table.remove(stack, #stack)
+                        end
+                        break
+                    else
+                        nesting = nesting - 1
+                    end
+                end
+            end
+        end
+    end
+
+    -- Run everything else
+    index = 0
     while index < #tokens do
         index = index + 1
 
@@ -500,11 +587,6 @@ local function compile(code)
                             index = function_calls[#function_calls]
                             table.remove(function_calls, #function_calls)
                         end
-                        if ctk == "CONST" then
-                            temp_i = temp_i + 1
-                            constants[tokens[temp_i]:sub(12)] = stack[#stack]
-                            table.remove(stack, #stack)
-                        end
                         break
                     else
                         nesting = nesting - 1
@@ -516,17 +598,13 @@ local function compile(code)
             table.insert(stack, constants[value])
 
         elseif token == "FUNCT" then
-            local init_index = index
             index = index + 1
-            local funct_name = tokens[index]:sub(12)
             while true do
                 index = index + 1
                 if tokens[index] == "DO" then
                     break
                 end
             end
-            function_addresses[funct_name] = init_index
-
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
@@ -601,6 +679,9 @@ local function compile(code)
 
         elseif token == "PRINT_TOKENS" then
             print(table.concat(tokens, " "))
+
+        elseif token == "CALL_LIBRARY" then
+
 
         elseif token == "PUSH_PARAM" then
             table.insert(stack, params[value])
