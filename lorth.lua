@@ -236,8 +236,6 @@ local function parse(code)
                     params[code[temp_i]] = nil
 
                 elseif ctk == nil then
-                    print(table.concat(tokens, " "))
-                    print(index)
                     raise("unmatched end", index)
                 end
             end
@@ -275,6 +273,8 @@ local function parse(code)
             local library, _ = token:match("(.+)/(.+)")
             if require_aliases[library] then
                 push("CALL_LIBRARY:"..token)
+            else
+                push("UNKNOWN:"..token)
             end
         end
     end
