@@ -397,7 +397,7 @@ local function compile(code)
         elseif token == "THEN" then
             local bool = stack[#stack]
             table.remove(stack, #stack)
-            if bool == false then
+            if not bool then
                 local nesting = 0 -- Workaround for nesting
                 while true do
                     index = index + 1
@@ -445,6 +445,49 @@ local function compile(code)
 
                 elseif ctk == "END" then
                     if nesting == 0 then
+                        break
+                    else
+                        nesting = nesting - 1
+                    end
+                end
+            end
+
+        elseif token == "DO" then -- only ever called on WHILE
+            local bool = stack[#stack]
+            table.remove(stack, #stack)
+            if not bool then
+                local nesting = 0 -- Workaround for nesting
+                while true do
+                    index = index + 1
+                    local ctk = tokens[index]
+
+                    if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+                        nesting = nesting + 1
+
+                    elseif ctk == "END" then
+                        if nesting == 0 then
+                            break
+                        else
+                            nesting = nesting - 1
+                        end
+                    end
+                end
+            end
+
+        elseif token == "END" then
+            local temp_i = index
+            local nesting = 0 -- Workaround for nesting
+            while true do
+                temp_i = temp_i - 1
+                local ctk = tokens[temp_i]
+
+                if ctk == "END" then
+                    nesting = nesting + 1
+
+                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET"
+                        or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
+                    if nesting == 0 then
+                        if ctk == "WHILE" then index = temp_i end
                         break
                     else
                         nesting = nesting - 1
