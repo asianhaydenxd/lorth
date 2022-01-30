@@ -50,7 +50,6 @@ local function parse(code)
     local functs = {}
     local consts = {}
     local params = {}
-    local require_aliases = {}
 
     code = split(code)
     
@@ -278,9 +277,6 @@ local function parse(code)
                 push("REQUIRE_AS")
                 index = index + 1
                 push("REQUIRE_ALIAS:"..code[index])
-                require_aliases[code[index]] = true
-            else
-                require_aliases[code[index]] = true
             end
         
         elseif functs[token] ~= nil then
@@ -311,7 +307,7 @@ local function compile(code)
 
     -- print(table.concat(tokens, " "))
 
-    -- Appending library code
+    -- Hoisting functions and constants
     local index = 0
     while index < #tokens do
         index = index + 1
