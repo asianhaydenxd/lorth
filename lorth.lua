@@ -4,11 +4,13 @@ local script = assert(io.open(file_name, "rb")):read("*all")
 local function remove_comments(text)
     local commentless_text = {}
     for line in text:gmatch("[^\r\n]+") do
-        local parts = {}
-        for str in line:gmatch("[^#]+") do
-            table.insert(parts, str)
+        if line:sub(1,1) ~= "#" then
+            local parts = {}
+            for str in line:gmatch("[^#]+") do
+                table.insert(parts, str)
+            end
+            table.insert(commentless_text, parts[1])
         end
-        table.insert(commentless_text, parts[1])
     end
     return table.concat(commentless_text, "\n")
 end
