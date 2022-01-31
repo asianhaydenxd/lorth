@@ -138,7 +138,7 @@ local function parse(code)
         elseif token == "false" then
             push("OP_PUSH_BOOL:false")
 
-        elseif token == "..." then
+        elseif token == "_" then
             push("OP_PUSH_NULL")
 
         -- Arithmetic operators
