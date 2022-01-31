@@ -209,6 +209,12 @@ local function parse(code)
 
         elseif token == "del" then
             push("REMOVE")
+
+        elseif token == "argc" then
+            push("PUSH_ARG_LENGTH")
+
+        elseif token == "argv" then
+            push("PUSH_ARG_VALUE")
         
         elseif token == "if" then
             push("IF")
@@ -522,6 +528,15 @@ local function compile(code)
 
         elseif token == "REMOVE" then
             table.remove(stack, #stack)
+
+        elseif token == "PUSH_ARG_LENGTH" then
+            table.insert(stack, #arg)
+
+        elseif token == "PUSH_ARG_VALUE" then
+            local item = stack[#stack]
+            table.remove(stack, #stack)
+            if arg[item] == nil then raise("invalid arg", index) end
+            table.insert(stack, arg[item])
 
         elseif token == "THEN" then
             local bool = stack[#stack]
