@@ -68,16 +68,37 @@ local function parse(code)
         if token == "require" then
             index = index + 1
             
+            local req_name = code[index]
             local req_script
 
             if not pcall(function ()
-                req_script = assert(io.open(code[index]..".lorth", "rb")):read("*all")
+                req_script = assert(io.open(req_name..".lorth", "rb")):read("*all")
             end) then
                 raise("invalid file name for require", index)
             end
 
-            for _, new_token in ipairs(split(req_script)) do
-                table.insert(code, new_token)
+            local req_alias = req_name
+            if code[index + 1] == "as" then
+                index = index + 2
+                req_alias = code[index]
+            end
+
+            local parsed_script = parse(req_script)
+
+            for index, new_token in ipairs(split(req_script)) do
+                local t = {}
+                for str in string.gmatch(parsed_script[index], "([^:]+)") do
+                    table.insert(t, str)
+                end
+                local req_token = t[1]
+                if req_token == "FUNCT_NAME" 
+                   or req_token == "CALL_FUNCT"
+                   or req_token == "CONST_NAME"
+                   or req_token == "CALL_CONST" then
+                    table.insert(code, req_alias..":"..new_token)
+                else
+                    table.insert(code, new_token)
+                end
             end
         end
     end
