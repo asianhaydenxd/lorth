@@ -138,6 +138,9 @@ local function parse(code)
         elseif token == "false" then
             push("OP_PUSH_BOOL:false")
 
+        elseif token == "..." then
+            push("OP_PUSH_NULL")
+
         -- Arithmetic operators
         elseif token == "+" then
             push("OP_ADD")
@@ -387,6 +390,9 @@ local function compile(code)
         elseif token == "OP_PUSH_BOOL" then
             local toboolean = {["true"]=true, ["false"]=false}
             table.insert(stack, toboolean[value])
+
+        elseif token == "OP_PUSH_NULL" then
+            table.insert(stack, nil)
 
         -- Arithmetic operators
         elseif token == "OP_ADD" then
