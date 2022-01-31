@@ -196,6 +196,12 @@ local function parse(code)
         elseif token == "stacklen" then
             push("PUSH_STACK_LENGTH")
 
+        elseif token == "type" then
+            push("TYPE")
+
+        elseif token == "assert" then
+            push("ASSERT")
+
         elseif token == "dup" then
             push("DUPLICATE")
 
@@ -495,6 +501,16 @@ local function compile(code)
                 out = out..element
             end
             print(out)
+
+        elseif token == "TYPE" then
+            local item = stack[#stack]
+            table.remove(stack, #stack)
+            table.insert(stack, type(item))
+
+        elseif token == "ASSERT" then
+            if stack[#stack] == false then
+                raise("assertion failed", index)
+            end
 
         elseif token == "DUPLICATE" then
             table.insert(stack, stack[#stack])
