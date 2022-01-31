@@ -312,12 +312,13 @@ local function compile(code)
     while index < #tokens do
         index = index + 1
 
-        local token, value
-        if string.find(tokens[index], ":") then
-            token, value = tokens[index]:match("(.+):(.+)")
-        else
-            token = tokens[index]
+        local t = {}
+        for str in string.gmatch(tokens[index], "([^:]+)") do
+            table.insert(t, str)
         end
+        local token = t[1]
+        table.remove(t, 1)
+        local value = table.concat(t, ":")
 
         if token == "FUNCT_NAME" then
             local init_index = index - 1
@@ -341,12 +342,13 @@ local function compile(code)
         index = index + 1
         -- print(index)
 
-        local token, value
-        if string.find(tokens[index], ":") then
-            token, value = tokens[index]:match("(.+):(.+)")
-        else
-            token = tokens[index]
+        local t = {}
+        for str in string.gmatch(tokens[index], "([^:]+)") do
+            table.insert(t, str)
         end
+        local token = t[1]
+        table.remove(t, 1)
+        local value = table.concat(t, ":")
         
         -- Data types
         if token == "OP_PUSH_STR" then
