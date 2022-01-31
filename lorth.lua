@@ -1,4 +1,4 @@
-local file_name = "main.lorth"
+local file_name = arg[1]
 local script = assert(io.open(file_name, "rb")):read("*all")
 
 local function remove_comments(text)
