@@ -31,6 +31,46 @@ local function tksplit(token)
     return token_name, token_value
 end
 
+local function skip_to_end(i, tokens)
+    local nesting = 0 -- Workaround for nesting
+    while true do
+        i = i + 1
+        local ctk = tksplit(tokens[i])
+
+        if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+            nesting = nesting + 1
+
+        elseif ctk == "END" then
+            if nesting == 0 then
+                break
+            else
+                nesting = nesting - 1
+            end
+        end
+    end
+    return i
+end
+
+local function skip_to_elif_else_end(i, tokens)
+    local nesting = 0 -- Workaround for nesting
+    while true do
+        i = i + 1
+        local ctk = tksplit(tokens[i])
+
+        if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
+            nesting = nesting + 1
+
+        elseif ctk == "END" or ctk == "ELSE" or ctk == "ELIF" then
+            if nesting == 0 then
+                break
+            else
+                nesting = nesting - 1
+            end
+        end
+    end
+    return i
+end
+
 local function split(text) -- Credit: Paul Kulchenko (stackoverflow)
     -- Split text using whitespace but keep single and double quotes intact
     text = remove_comments(text)
@@ -538,80 +578,20 @@ local function compile(code)
             local bool = stack[#stack]
             table.remove(stack, #stack)
             if not bool then
-                local nesting = 0 -- Workaround for nesting
-                while true do
-                    index = index + 1
-                    local ctk = tksplit(tokens[index])
-
-                    if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                        nesting = nesting + 1
-
-                    elseif ctk == "END" or ctk == "ELSE" or ctk == "ELIF" then
-                        if nesting == 0 then
-                            break
-                        else
-                            nesting = nesting - 1
-                        end
-                    end
-                end
+                index = skip_to_elif_else_end(index, tokens)
             end
 
         elseif token == "ELSE" then -- Is only called when everything above is run
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                index = index + 1
-                local ctk = tksplit(tokens[index])
-
-                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                    nesting = nesting + 1
-
-                elseif ctk == "END" then
-                    if nesting == 0 then
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
-            end
+            index = skip_to_end(index, tokens)
 
         elseif token == "ELIF" then -- Is only called when everything above is run
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                index = index + 1
-                local ctk = tksplit(tokens[index])
-
-                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                    nesting = nesting + 1
-
-                elseif ctk == "END" then
-                    if nesting == 0 then
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
-            end
+            index = skip_to_end(index, tokens)
 
         elseif token == "DO" then -- only ever called on WHILE
             local bool = stack[#stack]
             table.remove(stack, #stack)
             if not bool then
-                local nesting = 0 -- Workaround for nesting
-                while true do
-                    index = index + 1
-                    local ctk = tksplit(tokens[index])
-
-                    if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                        nesting = nesting + 1
-
-                    elseif ctk == "END" then
-                        if nesting == 0 then
-                            break
-                        else
-                            nesting = nesting - 1
-                        end
-                    end
-                end
+                index = skip_to_end(index, tokens)
             end
 
         elseif token == "END" then
@@ -626,22 +606,7 @@ local function compile(code)
             end
 
         elseif token == "CONST" then
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                index = index + 1
-                local ctk = tksplit(tokens[index])
-
-                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                    nesting = nesting + 1
-
-                elseif ctk == "END" then
-                    if nesting == 0 then
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
-            end
+            index = skip_to_end(index, tokens)
 
         elseif token == "CALL_CONST" then
             table.insert(constant_calls, index)
@@ -655,22 +620,7 @@ local function compile(code)
                     break
                 end
             end
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                index = index + 1
-                local ctk = tksplit(tokens[index])
-
-                if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
-                    nesting = nesting + 1
-
-                elseif ctk == "END" then
-                    if nesting == 0 then
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
-            end
+            index = skip_to_end(index, tokens)
         
         elseif token == "CALL_FUNCT" then
             table.insert(function_calls, index)
