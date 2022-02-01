@@ -20,6 +20,17 @@ local function raise(message, index)
     os.exit()
 end
 
+local function tksplit(token)
+    local t = {}
+    for str in string.gmatch(token, "([^:]+)") do
+        table.insert(t, str)
+    end
+    local token_name = t[1]
+    table.remove(t, 1)
+    local token_value = table.concat(t, ":")
+    return token_name, token_value
+end
+
 local function split(text) -- Credit: Paul Kulchenko (stackoverflow)
     -- Split text using whitespace but keep single and double quotes intact
     text = remove_comments(text)
@@ -88,11 +99,8 @@ local function parse(code)
             local parsed_script = parse(req_script)
 
             for index, new_token in ipairs(split(req_script)) do
-                local t = {}
-                for str in string.gmatch(parsed_script[index], "([^:]+)") do
-                    table.insert(t, str)
-                end
-                local req_token = t[1]
+                local req_token = tksplit(parsed_script[index])
+                
                 if req_token == "FUNCT_NAME" 
                    or req_token == "CALL_FUNCT"
                    or req_token == "CONST_NAME"
@@ -347,13 +355,7 @@ local function compile(code)
     while index < #tokens do
         index = index + 1
 
-        local t = {}
-        for str in string.gmatch(tokens[index], "([^:]+)") do
-            table.insert(t, str)
-        end
-        local token = t[1]
-        table.remove(t, 1)
-        local value = table.concat(t, ":")
+        local token, value = tksplit(tokens[index])
 
         if token == "FUNCT_NAME" then
             local init_index = index - 1
@@ -377,13 +379,7 @@ local function compile(code)
         index = index + 1
         -- print(index)
 
-        local t = {}
-        for str in string.gmatch(tokens[index], "([^:]+)") do
-            table.insert(t, str)
-        end
-        local token = t[1]
-        table.remove(t, 1)
-        local value = table.concat(t, ":")
+        local token, value = tksplit(tokens[index])
         
         -- Data types
         if token == "OP_PUSH_STR" then
