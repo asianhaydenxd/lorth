@@ -282,12 +282,12 @@ local function parse(code)
             local nesting = 0 -- Unmatched bracket counter; workaround for nesting
             while true do
                 temp_i = temp_i - 1
-                local ctk = tokens[temp_i]
+                local ctk = tksplit(tokens[temp_i])
 
                 if ctk == "END" then
                     nesting = nesting + 1
 
-                elseif ctk == "DO" or ctk == "THEN" or ctk == "ELSE" or ctk == "CONST" then
+                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET" or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
                     if nesting == 0 then
                         break
                     else
@@ -303,7 +303,7 @@ local function parse(code)
                 end
             end
 
-            push("END")
+            push("END:"..temp_i)
         
         elseif token == "exit" then
             push("EXIT")
@@ -541,7 +541,7 @@ local function compile(code)
                 local nesting = 0 -- Workaround for nesting
                 while true do
                     index = index + 1
-                    local ctk = tokens[index]
+                    local ctk = tksplit(tokens[index])
 
                     if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                         nesting = nesting + 1
@@ -556,11 +556,11 @@ local function compile(code)
                 end
             end
 
-        elseif token == "ELSE" then
+        elseif token == "ELSE" then -- Is only called when everything above is run
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
-                local ctk = tokens[index]
+                local ctk = tksplit(tokens[index])
 
                 if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                     nesting = nesting + 1
@@ -574,11 +574,11 @@ local function compile(code)
                 end
             end
 
-        elseif token == "ELIF" then
+        elseif token == "ELIF" then -- Is only called when everything above is run
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
-                local ctk = tokens[index]
+                local ctk = tksplit(tokens[index])
 
                 if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                     nesting = nesting + 1
@@ -599,7 +599,7 @@ local function compile(code)
                 local nesting = 0 -- Workaround for nesting
                 while true do
                     index = index + 1
-                    local ctk = tokens[index]
+                    local ctk = tksplit(tokens[index])
 
                     if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                         nesting = nesting + 1
@@ -615,40 +615,21 @@ local function compile(code)
             end
 
         elseif token == "END" then
-            local temp_i = index
-            local nesting = 0 -- Workaround for nesting
-            while true do
-                temp_i = temp_i - 1
-                local ctk = tokens[temp_i]
-
-                if ctk == "END" then
-                    nesting = nesting + 1
-
-                elseif ctk == "WHILE" or ctk == "FUNCT" or ctk == "LET" or ctk == "PEEK" or ctk == "IF" or ctk == "CONST" then
-                    if nesting == 0 then
-                        if ctk == "WHILE" then
-                            index = temp_i
-                        end
-                        if ctk == "FUNCT" then
-                            index = function_calls[#function_calls]
-                            table.remove(function_calls, #function_calls)
-                        end
-                        if ctk == "CONST" then
-                            index = constant_calls[#constant_calls]
-                            table.remove(constant_calls, #constant_calls)
-                        end
-                        break
-                    else
-                        nesting = nesting - 1
-                    end
-                end
+            if tokens[tonumber(value)] == "WHILE" then
+                index = tonumber(value)
+            elseif tokens[tonumber(value)] == "FUNCT" then
+                index = function_calls[#function_calls]
+                table.remove(function_calls, #function_calls)
+            elseif tokens[tonumber(value)] == "CONST" then
+                index = constant_calls[#constant_calls]
+                table.remove(constant_calls, #constant_calls)
             end
 
         elseif token == "CONST" then
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
-                local ctk = tokens[index]
+                local ctk = tksplit(tokens[index])
 
                 if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                     nesting = nesting + 1
@@ -677,7 +658,7 @@ local function compile(code)
             local nesting = 0 -- Workaround for nesting
             while true do
                 index = index + 1
-                local ctk = tokens[index]
+                local ctk = tksplit(tokens[index])
 
                 if ctk == "DO" or ctk == "IF" or ctk == "CONST" then
                     nesting = nesting + 1
