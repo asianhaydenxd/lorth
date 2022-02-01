@@ -263,6 +263,12 @@ local function parse(code)
 
         elseif token == "argv" then
             push("PUSH_ARG_VALUE")
+
+        elseif token == "continue" then
+            push("CONTINUE")
+
+        elseif token == "break" then
+            push("BREAK")
         
         elseif token == "if" then
             push("IF")
@@ -573,6 +579,25 @@ local function compile(code)
             table.remove(stack, #stack)
             if arg[item] == nil then raise("invalid arg", index) end
             table.insert(stack, arg[item])
+
+        elseif token == "CONTINUE" then
+            while true do
+                local ctk, cv = tksplit(tokens[index + 1])
+                if ctk == "END" and tokens[tonumber(cv)] == "WHILE" then
+                    break
+                end
+                index = index + 1
+            end
+
+        elseif token == "BREAK" then
+            while true do
+                local ctk, cv = tksplit(tokens[index + 1])
+                if ctk == "END" and tokens[tonumber(cv)] == "WHILE" then
+                    break
+                end
+                index = index + 1
+            end
+            index = index + 1
 
         elseif token == "THEN" then
             local bool = stack[#stack]
