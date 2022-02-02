@@ -266,6 +266,9 @@ local function parse(code)
 
         elseif token == "break" then
             push("BREAK")
+
+        elseif token == "return" then
+            push("RETURN")
         
         elseif token == "if" then
             push("IF")
@@ -595,6 +598,15 @@ local function compile(code)
                 index = index + 1
             end
             index = index + 1
+
+        elseif token == "RETURN" then
+            while true do
+                local ctk, cv = tksplit(tokens[index + 1])
+                if ctk == "END" and tokens[tonumber(cv)] == "FUNCT" then
+                    break
+                end
+                index = index + 1
+            end
 
         elseif token == "THEN" then
             local bool = stack[#stack]
