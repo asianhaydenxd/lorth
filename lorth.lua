@@ -13,6 +13,8 @@ local function remove_comments(text)
 end
 
 local function raise(message, index)
+    message = message or "unspecified"
+    index = index or "unknown"
     print("Exception raised: "..message.." (index "..index..")")
     os.exit()
 end
@@ -101,6 +103,8 @@ local function parse(code)
     local consts = {}
     local params = {}
 
+    local libdata = {}
+
     code = split(code)
     
     local function is_within(token, a, b)
@@ -122,31 +126,44 @@ local function parse(code)
             local req_script
 
             if not pcall(function ()
-                req_script = assert(io.open(req_name..".lorth", "rb")):read("*all")
+                req_script = assert(io.open(req_name, "rb")):read("*all")
             end) then
                 raise("invalid file name for require", index)
             end
 
-            local req_alias = req_name
-            if code[index + 1] == "as" then
-                index = index + 2
-                req_alias = code[index]
-            end
+            if req_name:sub(-string.len(".lorth")) == ".lorth" then
+                local req_alias = req_name:sub(1, -7)
+                if code[index + 1] == "as" then
+                    index = index + 2
+                    req_alias = code[index]
+                end
+    
+                local parsed_script = parse(req_script)
+    
+                for token_index, new_token in ipairs(split(req_script)) do
+                    local req_token = tksplit(parsed_script[token_index])
+                    
+                    if req_token == "FUNCT_NAME" or req_token == "CALL_FUNCT" or req_token == "CONST_NAME" or req_token == "CALL_CONST" then
+                        table.insert(code, req_alias..":"..new_token)
+                    else
+                        table.insert(code, new_token)
+                    end
+                end
+            elseif req_name:sub(-string.len(".lua")) == ".lua" then
+                local req_alias = req_name:sub(1, -5)
+                if code[index + 1] == "as" then
+                    index = index + 2
+                    req_alias = code[index]
+                end
 
-            local parsed_script = parse(req_script)
-
-            for index, new_token in ipairs(split(req_script)) do
-                local req_token = tksplit(parsed_script[index])
-                
-                if req_token == "FUNCT_NAME" 
-                   or req_token == "CALL_FUNCT"
-                   or req_token == "CONST_NAME"
-                   or req_token == "CALL_CONST" then
-                    table.insert(code, req_alias..":"..new_token)
-                else
-                    table.insert(code, new_token)
+                local library = require(req_name:sub(1, -5))
+                for i, v in pairs(library) do
+                    local librarydata = req_alias..":"..i
+                    if libdata[librarydata] then raise("library data "..librarydata.." already imported", index) end
+                    libdata[librarydata] = v
                 end
             end
+
         end
     end
 
@@ -377,12 +394,15 @@ local function parse(code)
         elseif params[token] ~= nil then
             push("PUSH_PARAM:"..token)
 
+        elseif libdata[token] ~= nil then
+            push("LIBDATA:"..token)
+
         else
             push("UNKNOWN:"..token)
         end
     end
 
-    return tokens
+    return tokens, libdata
 end
 
 local function compile(code)
@@ -392,7 +412,7 @@ local function compile(code)
     local function_calls = {}
     local constant_addresses = {}
     local constant_calls = {}
-    local tokens = parse(code)
+    local tokens, libdata = parse(code)
 
     -- print(table.concat(tokens, " "))
 
@@ -716,6 +736,31 @@ local function compile(code)
 
         elseif token == "PUSH_PARAM" then
             table.insert(stack, params[value])
+
+        elseif libdata[value] then
+            local return_value = libdata[value]
+            if type(return_value) == "function" then
+                local param_count = debug.getinfo(libdata[value]).nparams -- number of args that libdata[value] takes
+                if param_count > 0 then
+                    return_value = libdata[value](table.unpack(stack, #stack - param_count + 1))
+                    for i = 1, param_count do table.remove(stack, #stack) end
+                else
+                    return_value = libdata[value]()
+                end
+            end
+            if type(return_value) == "table" then
+                if not pcall(function ()
+                    for i, v in ipairs(return_value) do
+                        table.insert(stack, v)
+                    end
+                end) then
+                    for i, v in pairs(return_value) do
+                        table.insert(stack, v)
+                    end
+                end
+            else
+                table.insert(stack, return_value)
+            end
         end
     end
 end
