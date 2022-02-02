@@ -154,7 +154,7 @@ local function parse(code)
     while index < #code do
         index = index + 1
         local token = code[index]
-        if token == "funct" then
+        if token == "function" then
             index = index + 1
             functs[code[index]] = true
             while code[index+1] ~= "do" do
@@ -287,7 +287,7 @@ local function parse(code)
             index = index + 1
             push("CONST_NAME:"..code[index])
         
-        elseif token == "funct" then
+        elseif token == "function" then
             push("FUNCT")
             index = index + 1
             push("FUNCT_NAME:"..code[index])
