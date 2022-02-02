@@ -318,6 +318,23 @@ local function parse(code)
                 index = index + 1
                 push("PARAM:"..code[index])
                 params[code[index]] = true
+                if code[index+1] == ":" then
+                    index = index + 1
+                    push("TYPECAST_SYMBOL")
+                    while code[index + 1] ~= "do" do
+                        index = index + 1
+                        if code[index] == "num" then
+                            push("TYPECAST:num")
+                        elseif code[index] == "str" then
+                            push("TYPECAST:str")
+                        elseif code[index] == "bool" then
+                            push("TYPECAST:bool")
+                        else
+                            raise("invalid typecast "..code[index], index)
+                        end
+                    end
+                    break
+                end
             end
         
         elseif token == "let" then
@@ -700,15 +717,36 @@ local function compile(code)
         
         elseif token == "CALL_FUNCT" then
             table.insert(function_calls, index)
-            index = function_addresses[value]
+            index = function_addresses[value] + 1
             local unordered_params = {}
             while true do
                 index = index + 1
-                
-                if tokens[index] == "DO" then
+                local ctk, cv = tksplit(tokens[index])
+                if ctk == "DO" or ctk == "TYPECAST_SYMBOL" then
                     break
                 else
                     table.insert(unordered_params, tokens[index])
+                end
+            end
+            if tokens[index] == "TYPECAST_SYMBOL" then
+                local arg_num = 0
+                while true do
+                    index = index + 1
+                    arg_num = arg_num + 1
+                    local ctk, cv = tksplit(tokens[index])
+                    if ctk == "DO" then
+                        break
+                    elseif ctk == "TYPECAST" then
+                        local function typeabbr(type_string)
+                            if type(type_string) == "number" then return "num" end
+                            if type(type_string) == "string" then return "str" end
+                            if type(type_string) == "boolean" then return "bool" end
+                        end
+                        local actual_type = typeabbr(stack[#stack - #unordered_params + arg_num])
+                        if cv ~= actual_type then
+                            raise("arg "..arg_num.." is of type "..actual_type.." but should be "..cv, index)
+                        end
+                    end
                 end
             end
             for i = #unordered_params, 1, -1 do
