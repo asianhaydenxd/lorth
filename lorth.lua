@@ -1,6 +1,3 @@
-local file_name = arg[1]
-local script = assert(io.open(file_name, "rb")):read("*all")
-
 local function remove_comments(text)
     local commentless_text = {}
     for line in text:gmatch("[^\r\n]+") do
@@ -710,5 +707,16 @@ local function compile(code)
         end
     end
 end
+
+if not arg[1] then
+    while true do
+        io.write("> ")
+        local command = io.read()
+        compile(command)
+    end
+end
+
+local file_name = arg[1]
+local script = assert(io.open(file_name, "rb")):read("*all")
 
 compile(script)
