@@ -284,6 +284,9 @@ local function parse(code)
         elseif token == "break" then
             push("BREAK")
 
+        elseif token == "goto" then
+            push("GOTO")
+
         elseif token == "return" then
             push("RETURN")
         
@@ -384,6 +387,10 @@ local function parse(code)
                 index = index + 1
                 push("REQUIRE_ALIAS:"..code[index])
             end
+
+        -- Special keywords
+        elseif token:sub(1, 2) == "->" then
+            push("GOTO_DEST:"..token:sub(3, #token))
         
         elseif functs[token] ~= nil then
             push("CALL_FUNCT:"..token)
@@ -623,6 +630,21 @@ local function compile(code)
             while true do
                 local ctk, cv = tksplit(tokens[index + 1])
                 if ctk == "END" and tokens[tonumber(cv)] == "FUNCT" then
+                    break
+                end
+                index = index + 1
+            end
+
+        elseif token == "GOTO" then
+            local destination = stack[#stack]
+            table.remove(stack, #stack)
+            local init_index = index
+            while true do
+                if tokens[index + 1] == nil then
+                    raise("goto did not find a destination", init_index)
+                end
+                local ctk, cv = tksplit(tokens[index + 1])
+                if ctk == "GOTO_DEST" and cv == destination then
                     break
                 end
                 index = index + 1
